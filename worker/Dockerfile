@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim AS build
 WORKDIR /build
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /uvx /bin/
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -18,10 +19,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && adduser --system --uid 1001 --ingroup appgroup appuser \
     && mkdir -p /app/results \
     && chown -R 1001:1001 /app
-COPY --from=build --link --chown=1001:1001 /build/.venv /app/backend/.venv
+COPY --from=build --link --chown=1001:1001 /opt/venv /opt/venv
 COPY --from=build --link --chown=1001:1001 /build/app /app/backend/app
 COPY --from=build --link --chown=1001:1001 /build/worker /app/worker
-ENV PATH="/app/backend/.venv/bin:$PATH" PYTHONPATH="/app/backend:/app"
+ENV PATH="/opt/venv/bin:$PATH" PYTHONPATH="/app/backend:/app"
 USER 1001:1001
 LABEL org.opencontainers.image.title="MAYA media worker"
 CMD ["python", "-m", "worker.main"]

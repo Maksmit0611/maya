@@ -1,0 +1,14 @@
+.git/
+.env
+.env.*
+**/.npmrc
+*.pem
+*.key
+*.p12
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
+.cache/

@@ -1,0 +1,98 @@
+{
+  "name": "maya-ai-implementation-skills",
+  "version": "1.0.0",
+  "target": "Ox Alpha",
+  "project": "MAYA AI",
+  "priority": [
+    "react_frontend",
+    "fastapi_backend",
+    "prompt_engineering",
+    "image_video_generation",
+    "supabase_postgres",
+    "ui_ux_design_system",
+    "api_oauth_social_integrations",
+    "video_editing",
+    "rag_memory_system",
+    "testing_containers_deployment",
+    "agentic_tool_orchestration",
+    "performance_optimization",
+    "seo_marketing_automation",
+    "data_visualization",
+    "browser_automation",
+    "universal_skill_tool_discovery",
+    "free_first_build_stack"
+  ],
+  "skills": {
+    "react_frontend": {
+      "stack": ["React", "TypeScript", "Tailwind CSS", "TanStack Query", "Zustand", "Zod", "Framer Motion"],
+      "features": ["onboarding", "project workspace", "room studio", "brief wizard", "builder mode", "model settings"],
+      "requirements": ["responsive", "accessible", "typed API client", "generation provenance"]
+    },
+    "fastapi_backend": {
+      "stack": ["Python 3.12", "FastAPI", "Pydantic v2", "SQLAlchemy async", "Alembic", "PostgreSQL", "Redis queue"],
+      "requirements": ["JWT auth", "RLS-compatible authorization", "background jobs", "idempotency", "signed uploads", "provider adapters"]
+    },
+    "prompt_engineering": {
+      "requirements": ["versioned templates", "structured brief context", "JSON schema output", "assumptions", "safety boundaries", "prompt provenance"],
+      "engine": "MAYA Enhancement Engine"
+    },
+    "image_video_generation": {
+      "image_models": ["FLUX.1", "SDXL", "ControlNet"],
+      "video_models": ["Stable Video Diffusion", "LTX-Video"],
+      "integration": "ComfyUI provider adapter with versioned workflow JSON"
+    },
+    "supabase_postgres": {
+      "requirements": ["UUID keys", "RLS", "private object storage", "project-scoped paths", "migrations", "audit events"],
+      "entities": ["profiles", "projects", "rooms", "assets", "design_briefs", "generation_jobs", "generation_results", "design_options", "agent_messages"]
+    },
+    "ui_ux_design_system": {
+      "requirements": ["primitive-semantic-component token hierarchy", "typography scale", "spacing scale", "responsive tokens", "dark mode", "WCAG AA", "reduced motion"],
+      "skills_catalog_group": "ui_ux_design_system"
+    },
+    "api_oauth_social_integrations": {
+      "requirements": ["OAuth 2.0/OIDC authorization code plus PKCE", "server-side token exchange", "encrypted refresh tokens", "minimum scopes", "webhook verification", "revocation"],
+      "skills_catalog_group": "api_oauth_social"
+    },
+    "video_editing": {
+      "requirements": ["ffprobe validation", "typed FFmpeg recipes", "immutable original assets", "worker jobs", "MoviePy overlays", "provenance"],
+      "skills_catalog_group": "video_editing"
+    },
+    "rag_memory_system": {
+      "requirements": ["pgvector-first evaluation", "project-scoped retrieval", "source citations", "retention/deletion", "separate memory classes", "re-embedding"],
+      "skills_catalog_group": "rag_memory"
+    },
+    "testing_containers_deployment": {
+      "requirements": ["CI quality gates", "RLS and authorization tests", "Docker multi-stage builds", "preview-first Vercel", "separate GPU workers", "documented rollback"],
+      "skills_catalog_group": "testing_deployment"
+    },
+    "agentic_tool_orchestration": {
+      "requirements": ["durable state machine", "typed tools", "idempotency", "retries", "workflow provenance", "explicit final publish approval"],
+      "skills_catalog_group": "agentic_orchestration"
+    },
+    "performance_optimization": {
+      "requirements": ["Core Web Vitals budgets", "Lighthouse CI", "API/database profiling", "queue/render metrics", "regression baselines"],
+      "skills_catalog_group": "performance_optimization"
+    },
+    "seo_marketing_automation": {
+      "requirements": ["public/private site boundary", "truthful structured data", "human-reviewed external content", "minimum OAuth scopes", "revocation"],
+      "skills_catalog_group": "seo_marketing_automation"
+    },
+    "data_visualization": {
+      "requirements": ["Chart.js-first", "accessible labels and table alternatives", "role/project-filtered aggregates", "accurate units and time ranges"],
+      "skills_catalog_group": "data_visualization"
+    },
+    "browser_automation": {
+      "requirements": ["official APIs preferred", "allowed domain/action policy", "separate worker", "no CAPTCHA/MFA bypass", "pre-publish confirmation", "audit event"],
+      "skills_catalog_group": "browser_automation"
+    },
+    "universal_skill_tool_discovery": {
+      "requirements": ["live skills search", "preview before install", "source/version/license review", "tool permission record", "skills lockfile", "decision log", "prohibited capability policy"],
+      "registry": "MAYA_OX_ALPHA_SKILLS_TOOL_REGISTRY.json"
+    },
+    "free_first_build_stack": {
+      "requirements": ["Supabase free-first", "Cloudflare deployment", "mock providers", "optional Gemini planning", "limited prototype GPU", "server-side secret management"],
+      "registry": "MAYA_FREE_STACK_AND_TOOLS.json"
+    }
+  },
+  "acceptance_command": "Follow MAYA_OX_ALPHA_IMPLEMENTATION.md as the source of truth; implement all quality-gate items before marking the task complete."
+}

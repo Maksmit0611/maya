@@ -1,0 +1,34 @@
+{
+  "name": "maya-free-first-stack-and-tools",
+  "version": "2026-10-17",
+  "phase_1_requires_paid_api": false,
+  "recommended_stack": {
+    "database_auth_storage": {"provider":"Supabase","required_env":["SUPABASE_URL","VITE_SUPABASE_PUBLISHABLE_KEY","SUPABASE_SERVICE_ROLE_KEY","SUPABASE_JWT_SECRET","DATABASE_URL"],"service_role_scope":"server_or_worker_only","database_note":"SUPABASE_URL is not a Postgres connection string; DATABASE_URL is a distinct server-side secret"},
+    "frontend_edge": {"provider":"Cloudflare Pages and Workers","required_env":["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID"],"phase":"deploy_only"},
+    "planning_llm": {"provider":"Gemini Developer API","required_env":["GEMINI_API_KEY"],"phase":"optional","policy":"server_only; do not send client-private data to a free tier unless the owner accepts its data-use terms"},
+    "media_generation": {"provider":"MockMediaProvider first; ComfyUI adapter later","required_env":["COMFYUI_BASE_URL","COMFYUI_API_TOKEN"],"phase":"prototype_after_core","policy":"no unlimited free production GPU assumption"},
+    "prototype_gpu": {"provider":"Hugging Face ZeroGPU","required_env":["HF_TOKEN"],"phase":"optional_limited_demo"}
+  },
+  "clis": [
+    {"name":"npx","purpose":"web tooling, Skills CLI, MCP launchers"},
+    {"name":"uv","purpose":"Python environments and dependencies"},
+    {"name":"Supabase CLI","purpose":"migrations, local development, functions"},
+    {"name":"Wrangler","purpose":"Cloudflare development and deployment"},
+    {"name":"Docker Compose","purpose":"reproducible API and worker services"},
+    {"name":"FFmpeg and FFprobe","purpose":"media worker validation and rendering"},
+    {"name":"Playwright","purpose":"E2E tests and authorised browser automation"},
+    {"name":"gh","purpose":"repository, pull request, and CI workflow operations"},
+    {"name":"hf","purpose":"optional Hugging Face Space management"},
+    {"name":"skills","purpose":"find, preview, install, inventory, and update individual agent skills"}
+  ],
+  "mcps": [
+    {"name":"Supabase MCP","phase":"after_project_creation","mode":"project-scoped read-only first","write_enablement":"reviewed migration/development task only"},
+    {"name":"Playwright MCP","phase":"test_and_qa","mode":"localhost and preview allowlist","write_enablement":"user-authorised workflow only"},
+    {"name":"GitHub MCP","phase":"after_repo_connection","mode":"repo-scoped OAuth","write_enablement":"reviewed issues and pull requests only"},
+    {"name":"Cloudflare MCP","phase":"after_cloudflare_project","mode":"account/project scoped","write_enablement":"owner-approved deployment only"},
+    {"name":"MAYA internal MCP","phase":"later","mode":"Supabase Auth plus RLS","write_enablement":"tool-specific user authorisation"}
+  ],
+  "initial_provider_adapters": ["MockChatProvider","MockMediaProvider","GeminiChatProvider","ComfyUIProvider"],
+  "prohibited_inputs": ["browser cookies", "browser profiles", "personal social credentials", "cloud root credentials", "payment or billing keys", "frontend service-role keys"],
+  "phase_1_order": ["scaffold frontend/backend", "Supabase schema/RLS/storage", "typed APIs", "mock providers", "optional Gemini", "tests/CI/preview", "optional limited GPU adapter"]
+}

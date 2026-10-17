@@ -1,0 +1,46 @@
+{
+  "name": "maya-ox-alpha-skills-tool-registry",
+  "version": "2026-10-17",
+  "purpose": "Live skills.sh discovery and secure tool governance for MAYA AI",
+  "cli_workflow": {
+    "search": "npx skills find <query>",
+    "preview": "npx skills use <owner/repo>@<skill>",
+    "install_one": "npx skills add <owner/repo> --skill <skill>",
+    "inventory": "npx skills list --json",
+    "update": "npx skills update",
+    "forbidden": ["npx skills add --all", "bulk installation without review"]
+  },
+  "discovery_queries": {
+    "product": ["product", "requirements", "architecture", "repo plan", "documentation"],
+    "agentic": ["agent", "tool calling", "orchestration", "workflow", "human in the loop", "MCP"],
+    "frontend": ["react", "nextjs", "typescript", "tailwind", "shadcn", "forms", "accessibility", "i18n"],
+    "design": ["design system", "tokens", "typography", "spacing", "motion", "UX", "Figma"],
+    "backend": ["fastapi", "python", "openapi", "REST", "webhook", "background jobs", "rate limit"],
+    "identity_integrations": ["OAuth", "OIDC", "social login", "API authentication", "webhooks", "email"],
+    "data": ["Postgres", "Supabase", "SQLAlchemy", "Alembic", "Redis", "ETL", "CSV"],
+    "ai": ["prompt engineering", "structured output", "LLM evals", "embeddings", "RAG", "memory", "Ollama"],
+    "media": ["ComfyUI", "FLUX", "SDXL", "ControlNet", "SVD", "LTX", "FFmpeg", "MoviePy", "Remotion", "music generation", "TTS"],
+    "social": ["Instagram API", "TikTok API", "YouTube API", "publish", "social media", "content scheduling"],
+    "browser": ["Playwright", "agent browser", "browser automation", "web scraping", "testing"],
+    "quality": ["testing", "TDD", "contract testing", "security", "accessibility", "code review"],
+    "performance": ["performance", "Core Web Vitals", "Lighthouse", "load testing", "caching", "profiling"],
+    "observability": ["observability", "OpenTelemetry", "tracing", "Sentry", "Grafana", "logging"],
+    "deployment": ["Docker", "CI/CD", "GitHub Actions", "Vercel", "Cloudflare", "Hugging Face Spaces", "rollback"],
+    "growth": ["SEO", "Search Console", "GA4", "marketing", "analytics", "Chart.js", "data visualization"],
+    "security_cost": ["security hardening", "threat model", "secrets", "dependency audit", "cost optimization"]
+  },
+  "extra_discovered_skills": [
+    {"source":"anthropics/skills","skill":"mcp-builder","category":"mcp"},
+    {"source":"addyosmani/agent-skills","skill":"security-and-hardening","category":"security"},
+    {"source":"addyosmani/agent-skills","skill":"observability-and-instrumentation","category":"observability"},
+    {"source":"wshobson/agents","skill":"python-observability","category":"observability"},
+    {"source":"wshobson/agents","skill":"distributed-tracing","category":"observability"},
+    {"source":"remotion-dev/skills","skill":"remotion-best-practices","category":"media"},
+    {"source":"remotion-dev/skills","skill":"remotion-render","category":"media"},
+    {"source":"remotion-dev/skills","skill":"remotion-captions","category":"media"},
+    {"source":"grafana/skills","skill":"app-observability","category":"observability"}
+  ],
+  "permission_classes": ["read", "write_reversible", "write_external", "destructive"],
+  "prohibited_capabilities": ["CAPTCHA bypass", "anti-detection", "MFA bypass", "credential harvesting", "rate-limit evasion"],
+  "required_tool_record_fields": ["id", "category", "source", "version_or_commit", "purpose", "data_classification", "permissions", "credential_owner", "approval_required", "audit_events", "rollback", "status"]
+}

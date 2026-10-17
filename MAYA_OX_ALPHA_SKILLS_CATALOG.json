@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "maya-ox-alpha-skills-catalog",
+  "version": "2026-10-17",
+  "approved_install": [
+    {"source":"vercel-labs/agent-skills","skills":["vercel-react-best-practices","vercel-composition-patterns","web-design-guidelines"]},
+    {"source":"fastapi-practices/skills","skills":["fba"]},
+    {"source":"supabase/agent-skills","skills":["supabase","supabase-postgres-best-practices"]},
+    {"source":"wshobson/agents","skills":["prompt-engineering-patterns","design-system-patterns","rag-implementation"]},
+    {"source":"anthropics/skills","skills":["webapp-testing","mcp-builder"]},
+    {"source":"docker/skills","skills":["docker-project-foundations","docker-build-strategies"]},
+    {"source":"addyosmani/web-quality-skills","skills":["performance"]}
+  ],
+  "review_only": [{"source":"openai/codex-plugin-cc","skills":["gpt-5-4-prompting"]}],
+  "policy": "preview before install; record decision in docs/skill-decisions.md; never --all",
+  "project": {
+    "name": "MAYA AI",
+    "purpose": "Interior-design visualisation and enhancement platform for homeowners, builders, and designers",
+    "constraints": [
+      "cloud-hosted",
+      "prefer low-cost or free infrastructure where practical",
+      "keep GPU generation separate from the web/API service",
+      "do not commit credentials, private assets, or model weights"
+    ]
+  },
+  "usage_policy": {
+    "read_markdown_catalog_first": true,
+    "review_skill_before_install": true,
+    "record_source_version_and_license": true,
+    "never_auto_install_review_only": true,
+    "preserve_existing_repository_conventions": true
+  },
+  "live_discovery_registry": {
+    "markdown": "MAYA_OX_ALPHA_SKILLS_TOOL_REGISTRY.md",
+    "json": "MAYA_OX_ALPHA_SKILLS_TOOL_REGISTRY.json",
+    "required_before_major_capability": true,
+    "install_policy": "search, preview, review, record decision, then install one approved skill"
+  },
+  "free_first_stack": {
+    "markdown": "MAYA_FREE_STACK_AND_TOOLS.md",
+    "json": "MAYA_FREE_STACK_AND_TOOLS.json",
+    "starter_prompt": "OX_ALPHA_START_MAYA.md"
+  },
+  "core_skills": [
+    {"source":"vercel-labs/agent-skills","skill":"vercel-react-best-practices","area":"frontend-performance"},
+    {"source":"vercel-labs/agent-skills","skill":"vercel-composition-patterns","area":"component-architecture"},
+    {"source":"shadcn/ui","skill":"shadcn","area":"ui-primitives"},
+    {"source":"anthropics/skills","skill":"webapp-testing","area":"frontend-testing"},
+    {"source":"fastapi-practices/skills","skill":"fba","area":"fastapi-architecture"},
+    {"source":"janjaszczak/cursor","skill":"python-backend-fastapi","area":"fastapi-implementation"},
+    {"source":"supabase/agent-skills","skill":"supabase","area":"auth-storage-migrations"},
+    {"source":"supabase/agent-skills","skill":"supabase-postgres-best-practices","area":"schema-rls-performance"},
+    {"source":"openai/codex-plugin-cc","skill":"gpt-5-4-prompting","area":"prompt-contracts"},
+    {"source":"wshobson/agents","skill":"prompt-engineering-patterns","area":"prompt-reliability"},
+    {"source":"sickn33/agentic-awesome-skills","skill":"llm-structured-output","area":"typed-llm-output"},
+    {"source":"comfy-org/comfy-skills","skill":"comfy","area":"comfyui-workflows"}
+  ],
+  "optional_skills": [
+    {"source":"axross/skills","skill":"react-component-development","trigger":"component feature or refactor"},
+    {"source":"borghei/claude-skills","skill":"senior-frontend","trigger":"frontend architecture review"},
+    {"source":"vanducng/skills","skill":"fastreact","trigger":"fresh FastAPI and React application scaffold"},
+    {"source":"oakoss/agent-skills","skill":"prompt-engineering","trigger":"multimodal prompt templates and evaluation"},
+    {"source":"sickn33/agentic-awesome-skills","skill":"context-engineering","trigger":"memory or RAG feature"},
+    {"source":"inbharatai/claude-skills","skill":"stable-diffusion-helper","trigger":"SDXL or ControlNet workflow work"},
+    {"source":"g1joshi/agent-skills","skill":"comfyui","trigger":"self-hosted advanced ComfyUI"},
+    {"source":"digitalsamba/claude-code-video-toolkit","skill":"ltx2","trigger":"LTX video feature"},
+    {"source":"tippyentertainment/skills","skill":"comfyui-video-generator","trigger":"verified ComfyUI video workflow"},
+    {"source":"vanman2024/ai-dev-marketplace","skill":"schema-validation","trigger":"before database migration deployment"},
+    {"source":"supercent-io/skills-template","skill":"backend-testing","trigger":"backend test expansion"}
+  ],
+  "high_value_skill_sets": {
+    "ui_ux_design_system": [
+      {"source":"vercel-labs/agent-skills","skill":"web-design-guidelines","purpose":"web interface spacing, typography, interaction, and accessibility"},
+      {"source":"wshobson/agents","skill":"design-system-patterns","purpose":"primitive, semantic, and component token architecture"},
+      {"source":"supercent-io/skills-template","skill":"frontend-design-system","purpose":"tokens, layout, motion, and WCAG checks"},
+      {"source":"jacob-balslev/skills","skill":"typography-system","purpose":"semantic type scale and reliable web font delivery"},
+      {"source":"arvindrk/extract-design-system","skill":"extract-design-system","purpose":"extract existing repository design tokens before extending the UI"},
+      {"source":"pbakaus/impeccable","skill":"critique","purpose":"final visual review"},
+      {"source":"pbakaus/impeccable","skill":"polish","purpose":"final visual refinement"}
+    ],
+    "api_oauth_social": [
+      {"source":"supercent-io/skills-template","skill":"authentication-setup","purpose":"OAuth/OIDC, sessions, RBAC, refresh-token lifecycle"},
+      {"source":"secondsky/claude-skills","skill":"api-authentication","purpose":"secure API authentication patterns"},
+      {"source":"thedaviddias/ux-patterns-for-developers","skill":"social-login","purpose":"OAuth social sign-in user experience"},
+      {"source":"facebook/agentic-tools","skill":"api-integration","purpose":"optional Instagram and WhatsApp backend integration"},
+      {"source":"facebook/agentic-tools","skill":"webhook-setup","purpose":"optional signed social webhook processing"},
+      {"source":"facebook/agentic-tools","skill":"search-docs","purpose":"current Meta developer documentation lookup"}
+    ],
+    "video_editing": [
+      {"source":"bryanwhl/ffmpeg-video-editor","skill":"ffmpeg-video-editor","purpose":"server-side probing and deterministic media edits"},
+      {"source":"digitalsamba/claude-code-video-toolkit","skill":"moviepy","purpose":"deterministic overlays and short Python media jobs"},
+      {"source":"digitalsamba/claude-code-video-toolkit","skill":"ltx2","purpose":"queued image-to-video generation"},
+      {"source":"tippyentertainment/skills","skill":"comfyui-video-generator","purpose":"reviewed ComfyUI video generation workflows"}
+    ],
+    "rag_memory": [
+      {"source":"wshobson/agents","skill":"rag-implementation","purpose":"document ingestion, retrieval, evaluation, and vector-store options"},
+      {"source":"borghei/claude-skills","skill":"rag-architect","purpose":"vector store selection by cost, scale, privacy, and latency"},
+      {"source":"muratcankoylan/agent-skills-for-context-engineering","skill":"memory-systems","purpose":"layered persistent agent memory design"},
+      {"source":"terminalskills/skills","skill":"agent-memory","purpose":"instruction-file-first memory strategy"},
+      {"source":"t4sh/skills4sh","skill":"agent-memory","purpose":"reviewable git-tracked project memory"},
+      {"source":"nousresearch/hermes-agent","skill":"chroma","purpose":"optional self-hosted vector database"}
+    ],
+    "testing_deployment": [
+      {"source":"dhruvanbhalara/skills","skill":"ci-cd","purpose":"GitHub Actions CI/CD quality gates"},
+      {"source":"docker/skills","skill":"docker-project-foundations","purpose":"safe project Dockerisation"},
+      {"source":"docker/skills","skill":"docker-build-strategies","purpose":"reproducible production image builds"},
+      {"source":"vercel-labs/agent-skills","skill":"deploy-to-vercel","purpose":"preview-first Vercel deployment"},
+      {"source":"openai/plugins","skill":"deployments-cicd","purpose":"Vercel promotion, rollback, inspect, and CI/CD"},
+      {"source":"huggingface/skills","skill":"huggingface-spaces","purpose":"Hugging Face Space demos and bounded GPU experiments"}
+    ],
+    "agentic_orchestration": [
+      {"source":"inngest/inngest-skills","skill":"inngest-agents","purpose":"durable multi-step tool calls, retries, approvals, and realtime progress"},
+      {"source":"dannymac180/skills","skill":"codex-dynamic-workflows","purpose":"supervised orchestration workflow artifacts"},
+      {"source":"obra/superpowers","skill":"writing-plans","purpose":"structured plan before complex execution"},
+      {"source":"obra/superpowers","skill":"executing-plans","purpose":"checkpointed plan execution"},
+      {"source":"obra/superpowers","skill":"verification-before-completion","purpose":"evidence gate before completion"}
+    ],
+    "performance_optimization": [
+      {"source":"addyosmani/web-quality-skills","skill":"performance","purpose":"Core Web Vitals and Lighthouse budget optimisation"},
+      {"source":"cloudflare/skills","skill":"web-perf","purpose":"render, network, cache, and layout-shift diagnosis"},
+      {"source":"openai/plugins","skill":"web-perf","purpose":"web performance review"},
+      {"source":"olehsvyrydov/ai-development-team","skill":"performance-engineer","purpose":"frontend, API, database, cache, and load-test optimisation"},
+      {"source":"stareezy-1/frontend-architecture-skill","skill":"frontend-lighthouse","purpose":"CI performance gate"}
+    ],
+    "seo_marketing_automation": [
+      {"source":"aaron-he-zhu/aaron-marketing-skills","skill":"technical-seo-checker","purpose":"crawlability, indexing, schema, mobile, and SEO audit"},
+      {"source":"reason-machines/marketing-skills","skill":"seo-content-marketing-skill-suite","purpose":"keyword, content, SERP, and editorial workflow"},
+      {"source":"reason-machines/data-skills","skill":"web-analytics-agent-skill","purpose":"authorised Search Console, GA4, and Bing reporting"},
+      {"source":"i-onlabs/claude-code-skills","skill":"marketing-demand-acquisition","purpose":"growth and demand-acquisition planning"}
+    ],
+    "data_visualization": [
+      {"source":"nickcrew/claude-cortex","skill":"chart-builder","purpose":"Chart.js/Python chart design and configuration"},
+      {"source":"anthropics/knowledge-work-plugins","skill":"data-visualization","purpose":"accessible chart selection and storytelling"},
+      {"source":"claude-office-skills/skills","skill":"chart-designer","purpose":"Chart.js/ECharts configuration"},
+      {"source":"openai/plugins","skill":"d3-data-visualization","purpose":"bespoke interactive data visualisations"}
+    ],
+    "browser_automation": [
+      {"source":"lackeyjb/playwright-skill","skill":"playwright-skill","purpose":"authorised Playwright test and operational scripts"},
+      {"source":"openai/plugins","skill":"agent-browser","purpose":"reviewed browser automation"},
+      {"source":"vercel-labs/agent-browser","skill":"agent-browser","purpose":"browser QA and allowed action workflows"},
+      {"source":"github/awesome-copilot","skill":"webapp-testing","purpose":"Playwright test/debug workflows"},
+      {"source":"sickn33/agentic-awesome-skills","skill":"browser-automation","purpose":"browser automation framework selection"}
+    ]
+  },
+  "review_only_skills": [
+    {"source":"reason-machines/mcp-skills","skill":"comfyui-mcp-agent","reason":"broad model, node, workflow, and MCP tool permissions"},
+    {"source":"reason-machines/security-skills","skill":"supabase-pentest-skills","reason":"authorised non-production security testing only"},
+    {"source":"thinkfleetai/thinkfleet-engine","skill":"fal-api","reason":"paid hosted provider and data-handling review required"}
+    ,{"source":"reason-machines/ai-agent-skills","skill":"agentmemory-persistent-memory","reason":"external persistent-memory integration requires privacy, retention, and provider security review"}
+    ,{"source":"rohitg00/agentmemory","skill":"agentmemory-mcp-tools","reason":"security audit result needs review and its broad memory/MCP tool access must be restricted"}
+    ,{"source":"fetcher-sh/fetcher-skills","skill":"fetcher","reason":"third-party data collection requires provider terms, privacy, and user-consent review"}
+    ,{"source":"lijingpan/video-uploader","skill":"video-uploader","reason":"social publishing must not use anti-detection or bypass platform rules; prefer official APIs and user confirmation"}
+  ],
+  "ox_alpha_instruction": "Read MAYA_OX_ALPHA_SKILLS_CATALOG.md and MAYA_OX_ALPHA_IMPLEMENTATION.md. Apply core skills as implementation guidance, install only reviewed owner-approved skills, and complete the acceptance checklist."
+}

@@ -14,7 +14,9 @@ COPY db ./db
 FROM python:3.12-slim AS runtime
 WORKDIR /app
 RUN addgroup --system --gid 1001 appgroup \
-    && adduser --system --uid 1001 --ingroup appgroup appuser
+    && adduser --system --uid 1001 --ingroup appgroup appuser \
+    && mkdir -p /app/uploads \
+    && chown appuser:appgroup /app/uploads
 COPY --from=build --link --chown=1001:1001 /opt/venv /opt/venv
 COPY --from=build --link --chown=1001:1001 /build/app /app/app
 COPY --from=build --link --chown=1001:1001 /build/migrations /app/migrations

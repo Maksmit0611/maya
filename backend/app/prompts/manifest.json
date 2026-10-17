@@ -1,0 +1,7 @@
+{
+  "design_plan_v1": {
+    "file": "versions/v1/design_plan_v1.md",
+    "version": "1",
+    "schema": "DesignPlan"
+  }
+}

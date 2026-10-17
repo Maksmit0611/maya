@@ -39,3 +39,19 @@ Decision: Install only skills named in the approved catalog, one at a time after
 Rationale: Apply useful project guidance while retaining auditable, project-scoped skill copies and respecting declared licenses.
 
 Date: 2026-10-17
+
+SKILL-ADD: vercel-react-best-practices — previewed, approved
+SKILL-ADD: vercel-composition-patterns — previewed, approved
+SKILL-SKIP: web-design-guidelines — previewed; no license is declared in the skill or upstream repository.
+SKILL-ADD: fba — previewed, approved
+SKILL-ADD: supabase — previewed, approved; upstream MIT license verified.
+SKILL-ADD: supabase-postgres-best-practices — previewed, approved; MIT, skill version 1.1.1.
+SKILL-ADD: prompt-engineering-patterns — previewed, approved; upstream MIT license verified.
+SKILL-ADD: design-system-patterns — previewed, approved; upstream MIT license verified.
+SKILL-ADD: rag-implementation — previewed, approved; upstream MIT license verified.
+SKILL-ADD: webapp-testing — previewed, approved; bundled Apache-2.0 LICENSE.txt.
+SKILL-ADD: mcp-builder — previewed, approved; bundled Apache-2.0 LICENSE.txt.
+SKILL-ADD: docker-project-foundations — previewed, approved; Apache-2.0.
+SKILL-NOTE: Retain `docker-compose.yml` because the user-specified build contract names it; validate with `docker compose -f docker-compose.yml`.
+SKILL-ADD: docker-build-strategies — previewed, approved; Apache-2.0.
+SKILL-ADD: performance — previewed, approved; MIT, skill version 2.0.

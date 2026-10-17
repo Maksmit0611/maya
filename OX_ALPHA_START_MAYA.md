@@ -1,5 +1,7 @@
 # Paste This into Ox Alpha
 
+**Current continuation:** Phase 1 has been scaffolded and verified in this repository. Read `OX_ALPHA_HANDOFF.md` first for the implemented state, CI baseline, and next milestone. Continue the existing code; do not recreate Phase 1.
+
 You are implementing MAYA AI, a cloud-hosted interior-design visualisation agent for homeowners, builders, and designers.
 
 Read these files in order:
@@ -10,7 +12,7 @@ Read these files in order:
 4. `MAYA_OX_ALPHA_SKILLS_TOOL_REGISTRY.md` and JSON — live discovery and tool governance.
 5. `MAYA_FREE_STACK_AND_TOOLS.md` and JSON — free-first tools, secrets, MCPs, and phase order.
 
-Start immediately with Phase 1. Preserve existing repository conventions. If the repository is empty, create a monorepo with React + TypeScript frontend and FastAPI Python backend.
+Preserve existing repository conventions. If the repository is empty, create a monorepo with React + TypeScript frontend and FastAPI Python backend. Otherwise use `OX_ALPHA_HANDOFF.md` to continue from the current implementation.
 
 Required Phase 1 outcomes:
 
@@ -29,4 +31,4 @@ Security requirements:
 - Start Supabase MCP read-only and project-scoped. Use Playwright only for MAYA test/allowed domains.
 - No browser cookies, CAPTCHA bypass, anti-detection, credential harvesting, uncontrolled shell/SQL, or external publishing without explicit user approval.
 
-Do not stop at a plan. Implement Phase 1, run tests, and report the files changed, commands run, tests passing/failing, and the exact secrets the owner must place in deployment settings.
+Do not stop at a plan. Continue the next unimplemented milestone, run tests, and report the files changed, commands run, tests passing/failing, and the exact secret variable names the owner must place in deployment settings. Never request or print secret values in chat.

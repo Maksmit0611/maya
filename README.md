@@ -36,6 +36,8 @@ Open the frontend at http://localhost:5173. Use the clearly labelled local dev-u
 
 Never paste secret values into issues, chat, source files, or `.env.example`. `.env` is ignored by Git.
 
+Set `ENVIRONMENT=production` in deployed API and worker environments. The API refuses to start in production without `SUPABASE_URL`; production never uses the local `dev-user`, even when `DEV_AUTH_ENABLED=true`. Keep `DEV_AUTH_ENABLED=true` only for local/CI use without Supabase.
+
 `SUPABASE_URL` is the Auth/Storage API endpoint, not a PostgreSQL connection string; hosted database connections need a separate `DATABASE_URL`. Compose deliberately uses its local Postgres service. Apply `backend/db/rls_policies.sql` and create/verify the private `maya-assets` bucket only in the intended Supabase project.
 
 ## Governance files

@@ -6,18 +6,23 @@ This is a complete offline handoff. Ox Alpha does not need web access, links, Gi
 
 Do not wait for external links. Do not invent a new architecture. Do not claim an integration is live until it works with tests. Work in small milestones, run checks after each milestone, and report changed files, commands, tests, mock-provider behavior, real-provider behavior, and blockers.
 
+## Latest implementation status — 20 October 2026
+
+**Milestone 1, production-auth boundary, is implemented in the current code excerpt at the end of this file.** Production app startup now fails if Supabase Auth is not configured. Local `dev-user` authentication is only permitted outside production when no Supabase URL is configured; setting `DEV_AUTH_ENABLED=true` cannot override that production boundary. The zero-key local and CI workflow remains available. Backend checks passed: Ruff, mypy, 26 pytest tests at 87.33% coverage, Alembic upgrade, and seed. Read the exact current files and tests at the end of this pack. This section supersedes older embedded handoffs that say Milestone 1 is still pending.
+
+**Next work:** connect and verify an owner-provisioned Supabase test project, private Storage, RLS, and two-user isolation. Do not apply migrations to an unidentified production database. Then implement one real ComfyUI image workflow and proceed to RAG/orchestration and product/deployment milestones.
+
 ## Mission
 
 Build MAYA AI, a multi-user interior-design visualization agent for homeowners, builders, and designers. It accepts room photos and structured briefs, creates validated design plans, generates visual concepts through replaceable providers, records provenance, and gives users a reviewable workspace. Designs are visualizations and planning aids; they are not certified construction documents, structural advice, code approvals, or guaranteed product/price claims.
 
-## Immediate implementation task
+## Immediate implementation task — completed
 
-1. When `ENVIRONMENT=production`, reject local `dev-user` authentication even if `DEV_AUTH_ENABLED=true`.
-2. Require configured Supabase authentication for production API access.
-3. Preserve the zero-key local and CI mock workflow.
-4. Add focused backend tests for production authentication boundaries.
-5. Run backend lint, type checking, tests, coverage, migration, and seed checks.
-6. Report changed files, commands, test results, and remaining blockers.
+1. Production startup requires a configured `SUPABASE_URL`.
+2. `dev-user` is blocked in production even when `DEV_AUTH_ENABLED=true`.
+3. The zero-key local/CI path remains enabled when configured for development or tests.
+4. Focused production-auth tests are in `backend/tests/test_api.py`.
+5. The current code and verified checks are reproduced at the end of this file.
 
 Then continue in this order: real Supabase migration/storage/RLS and two-user isolation; one real ComfyUI image workflow in the worker; project-scoped vector memory/RAG; bounded agent orchestration; Room Studio and builder exports; accessibility, quotas, observability, preview deployment; and only then official social APIs with explicit per-action approval.
 
@@ -29,12 +34,12 @@ Then continue in this order: real Supabase migration/storage/RLS and two-user is
 - Deterministic mock chat, optional Gemini JSON provider, mock media provider, and ComfyUI unavailable stub.
 - Database migration and separate Supabase RLS policy SQL.
 - Compose Postgres/API/worker/frontend stack with keyless development.
-- CI for backend, frontend, secret scanning, migration/seed, and Playwright E2E. Latest known application CI passed.
+- CI for backend, frontend, secret scanning, migration/seed, and Playwright E2E. Latest known application CI passed; local auth milestone checks also pass as recorded above.
 - Thirteen individually reviewed local skills with lock hashes and license decisions.
 
 ## Not yet complete
 
-Production deployment/auth, live Supabase RLS verification, real ComfyUI image/video generation, live Gemini acceptance, vector memory/RAG, autonomous multi-tool chaining, music generation, builder exports, social OAuth/publishing, marketing automation, quotas, abuse controls, retention, observability, cost controls, and public-service hardening are future work. Do not describe them as implemented.
+Production deployment, live Supabase RLS verification, real ComfyUI image/video generation, live Gemini acceptance, vector memory/RAG, autonomous multi-tool chaining, music generation, builder exports, social OAuth/publishing, marketing automation, quotas, abuse controls, retention, observability, cost controls, and public-service hardening are future work. The production-auth boundary is implemented, but live production auth is not yet accepted against an owner's Supabase project.
 
 ## Zero-key acceptance flow
 
@@ -4020,3 +4025,1000 @@ with sync_playwright() as p:
   - `element_discovery.py` - Discovering buttons, links, and inputs on a page
   - `static_html_automation.py` - Using file:// URLs for local HTML
   - `console_logging.py` - Capturing console logs during automation
+
+
+---
+
+# Exact current files — production-auth milestone
+
+These are verbatim snapshots from the implementation after Milestone 1. Paths are repository-relative. Ox Alpha can copy or compare them directly. The test file is included in full so its fixtures, imports, and auth tests are visible.
+
+
+---
+
+## `backend/app/core/auth.py`
+
+````python
+from functools import lru_cache
+from typing import Annotated, Any
+
+import httpx
+import jwt
+from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.core.config import Settings, get_settings
+from app.core.errors import AppError
+
+bearer = HTTPBearer(auto_error=False)
+
+
+@lru_cache(maxsize=16)
+def _jwks_url(supabase_url: str) -> str:
+    return f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+
+
+async def _verify_supabase_token(token: str, settings: Settings) -> dict[str, Any]:
+    if settings.supabase_jwt_secret:
+        try:
+            return jwt.decode(
+                token, settings.supabase_jwt_secret, algorithms=["HS256"], audience="authenticated"
+            )
+        except jwt.PyJWTError as exc:
+            raise AppError("invalid_token", "The bearer token is invalid", 401) from exc
+
+    if not settings.supabase_url:
+        raise AppError("auth_unavailable", "Supabase authentication is not configured", 503)
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            response = await client.get(_jwks_url(settings.supabase_url))
+            response.raise_for_status()
+            keys = response.json().get("keys", [])
+        header = jwt.get_unverified_header(token)
+        matching = next((key for key in keys if key.get("kid") == header.get("kid")), None)
+        if matching is None:
+            raise AppError("invalid_token", "The bearer token signing key is unknown", 401)
+        algorithms = {"EC": "ES256", "RSA": "RS256", "OKP": "EdDSA"}
+        expected_algorithm = matching.get("alg") or algorithms.get(matching.get("kty"))
+        if not expected_algorithm or header.get("alg") != expected_algorithm:
+            raise AppError("invalid_token", "The bearer token algorithm is not allowed", 401)
+        signing_key = jwt.PyJWK.from_dict(matching).key
+        return jwt.decode(
+            token, signing_key, algorithms=[expected_algorithm], audience="authenticated"
+        )
+    except AppError:
+        raise
+    except (httpx.HTTPError, ValueError, jwt.PyJWTError) as exc:
+        raise AppError("invalid_token", "The bearer token could not be verified", 401) from exc
+
+
+async def get_current_user(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, str]:
+    if credentials is None:
+        if settings.dev_auth_allowed:
+            request.state.auth_mode = "dev-user (LOCAL/TEST ONLY)"
+            return {"id": "dev-user", "email": "dev-user@local.invalid"}
+        if settings.is_production and not settings.supabase_configured:
+            raise AppError(
+                "auth_unavailable",
+                "Supabase authentication must be configured in production",
+                503,
+            )
+        raise AppError("unauthorized", "A bearer token is required", 401)
+    claims = await _verify_supabase_token(credentials.credentials, settings)
+    subject = claims.get("sub")
+    if not isinstance(subject, str) or not subject:
+        raise AppError("invalid_token", "The bearer token has no user subject", 401)
+    return {"id": subject, "email": str(claims.get("email", ""))}
+````
+
+
+---
+
+## `backend/app/core/config.py`
+
+````python
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
+    app_name: str = "MAYA AI"
+    environment: str = "development"
+    database_url: str = "sqlite+aiosqlite:///./maya.db"
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
+    supabase_jwt_secret: str | None = None
+    supabase_storage_bucket: str = "maya-assets"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.8-flash"
+    comfyui_base_url: str | None = None
+    comfyui_api_token: str | None = None
+    hf_token: str | None = None
+    dev_auth_enabled: bool = True
+    upload_dir: str = "./uploads"
+    max_upload_bytes: int = 20_000_000
+    cors_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def supabase_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_url.strip())
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.strip().casefold() == "production"
+
+    @property
+    def dev_auth_allowed(self) -> bool:
+        return self.dev_auth_enabled and not self.is_production and not self.supabase_configured
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+````
+
+
+---
+
+## `backend/app/main.py`
+
+````python
+import logging
+import secrets
+from contextlib import asynccontextmanager
+from uuid import uuid4
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.api.v1.router import api_router
+from app.core.config import Settings, get_settings
+from app.core.db import make_session_factory
+from app.core.errors import AppError
+from app.models import Base
+
+logger = logging.getLogger(__name__)
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    resolved = settings or get_settings()
+    if resolved.is_production and not resolved.supabase_configured:
+        raise ValueError("Supabase authentication must be configured when ENVIRONMENT=production")
+    engine, session_factory = make_session_factory(resolved.database_url)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.engine = engine
+        app.state.session_factory = session_factory
+        app.state.upload_signing_key = secrets.token_bytes(32)
+        if resolved.database_url.startswith("sqlite") and resolved.environment != "production":
+            async with engine.begin() as connection:
+                await connection.run_sync(Base.metadata.create_all)
+        yield
+        await engine.dispose()
+
+    app = FastAPI(title="MAYA AI API", version="1.0.0", lifespan=lifespan)
+    app.dependency_overrides[get_settings] = lambda: resolved
+    app.state.engine = engine
+    app.state.session_factory = session_factory
+    app.state.upload_signing_key = secrets.token_bytes(32)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "x-maya-upload-token"],
+    )
+
+    @app.middleware("http")
+    async def request_id_middleware(request: Request, call_next):
+        request_id = request.headers.get("x-request-id") or str(uuid4())
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["x-request-id"] = request_id
+        return response
+
+    @app.exception_handler(AppError)
+    async def app_error_handler(request: Request, exc: AppError):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "code": exc.code,
+                "message": exc.message,
+                "details": exc.details,
+                "request_id": getattr(request.state, "request_id", "unknown"),
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(request: Request, exc: RequestValidationError):
+        safe_details = [
+            {"loc": item.get("loc"), "msg": item.get("msg"), "type": item.get("type")}
+            for item in exc.errors()
+        ]
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "validation_error",
+                "message": "Request validation failed",
+                "details": safe_details,
+                "request_id": getattr(request.state, "request_id", "unknown"),
+            },
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error_handler(request: Request, exc: StarletteHTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "code": "http_error",
+                "message": str(exc.detail),
+                "details": None,
+                "request_id": getattr(request.state, "request_id", "unknown"),
+            },
+            headers=exc.headers,
+        )
+
+    @app.exception_handler(Exception)
+    async def unexpected_error_handler(request: Request, exc: Exception):
+        logger.error(
+            "Unhandled API error request_id=%s error_type=%s",
+            getattr(request.state, "request_id", "unknown"),
+            type(exc).__name__,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": "internal_error",
+                "message": "An unexpected error occurred",
+                "details": None,
+                "request_id": getattr(request.state, "request_id", "unknown"),
+            },
+        )
+
+    @app.get("/healthz", tags=["health"])
+    async def healthz():
+        return {
+            "status": "ok",
+            "auth_mode": (
+                "supabase"
+                if resolved.supabase_configured
+                else "dev-user (LOCAL/TEST ONLY)"
+                if resolved.dev_auth_allowed
+                else "disabled"
+            ),
+        }
+
+    app.include_router(api_router, prefix="/api/v1")
+    return app
+
+
+app = create_app()
+````
+
+
+---
+
+## `backend/tests/test_api.py`
+
+````python
+import asyncio
+import base64
+import json
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
+import httpx
+import jwt
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core.config import Settings
+from app.core.errors import AppError
+from app.main import create_app
+from app.models import Result
+
+
+class FakeAsyncClient:
+    def __init__(self, *args, get_response=None, post_response=None, **kwargs):
+        self.get_response = get_response
+        self.post_response = post_response
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def get(self, url, **kwargs):
+        if callable(self.get_response):
+            return self.get_response(url, **kwargs)
+        return self.get_response
+
+    async def post(self, url, **kwargs):
+        if callable(self.post_response):
+            return self.post_response(url, **kwargs)
+        return self.post_response
+
+
+def client_for(tmp_path, **overrides):
+    options = {
+        "database_url": f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
+        "upload_dir": str(tmp_path / "uploads"),
+        "environment": "test",
+        **overrides,
+    }
+    settings = Settings(**options)
+    return TestClient(create_app(settings))
+
+
+def create_project(client: TestClient) -> str:
+    response = client.post("/api/v1/projects", json={"name": "Reading nook"})
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+def test_health_and_dev_auth_mode(tmp_path):
+    with client_for(tmp_path) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 200
+        assert response.json()["auth_mode"].startswith("dev-user")
+        assert client.get("/api/v1/projects").json() == []
+
+
+def test_auth_fails_closed_when_supabase_is_configured(tmp_path):
+    with client_for(
+        tmp_path, supabase_url="https://project.supabase.co", dev_auth_enabled=False
+    ) as client:
+        response = client.get("/api/v1/projects")
+        assert response.status_code == 401
+        assert response.json()["code"] == "unauthorized"
+
+
+def test_production_startup_requires_supabase_auth_even_if_dev_auth_enabled(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'production.db'}",
+        environment="production",
+        dev_auth_enabled=True,
+    )
+
+    with pytest.raises(ValueError, match="Supabase authentication must be configured"):
+        create_app(settings)
+
+
+def test_production_never_falls_back_to_dev_user(tmp_path):
+    with client_for(
+        tmp_path,
+        environment="production",
+        supabase_url="https://project.supabase.co",
+        dev_auth_enabled=True,
+    ) as client:
+        response = client.get("/api/v1/projects")
+        assert response.status_code == 401
+        assert response.json()["code"] == "unauthorized"
+        assert client.get("/healthz").json()["auth_mode"] == "supabase"
+
+
+def test_dev_auth_can_be_disabled_outside_production(tmp_path):
+    with client_for(tmp_path, environment="test", dev_auth_enabled=False) as client:
+        response = client.get("/api/v1/projects")
+        assert response.status_code == 401
+        assert response.json()["code"] == "unauthorized"
+        assert client.get("/healthz").json()["auth_mode"] == "disabled"
+
+
+def test_error_envelope_has_request_id(tmp_path):
+    with client_for(tmp_path) as client:
+        response = client.post("/api/v1/projects", json={})
+        body = response.json()
+        assert response.status_code == 422
+        assert body["code"] == "validation_error"
+        assert body["request_id"] == response.headers["x-request-id"]
+        assert body["details"]
+
+
+def test_idempotency_replay_and_payload_conflict(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        headers = {"Idempotency-Key": "brief-run-001"}
+        payload = {"project_id": project_id, "brief": {"style": "Japandi"}}
+        first = client.post("/api/v1/jobs", json=payload, headers=headers)
+        replay = client.post("/api/v1/jobs", json=payload, headers=headers)
+        conflict = client.post(
+            "/api/v1/jobs", json={**payload, "brief": {"style": "Industrial"}}, headers=headers
+        )
+        assert first.status_code == 202
+        assert replay.status_code == 202
+        assert first.json()["id"] == replay.json()["id"]
+        assert conflict.status_code == 409
+        assert conflict.json()["code"] == "idempotency_conflict"
+
+
+def test_cancel_sets_flag_without_unbounded_status_transition(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        created = client.post(
+            "/api/v1/jobs",
+            json={"project_id": project_id, "brief": {}},
+            headers={"Idempotency-Key": "cancel-1"},
+        ).json()
+        response = client.post(f"/api/v1/jobs/{created['id']}/cancel")
+        assert response.status_code == 200
+        assert response.json()["cancellation_requested"] is True
+        assert response.json()["status"] == "queued"
+
+
+def test_room_brief_chat_plan_and_results_access(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        room = client.post(f"/api/v1/projects/{project_id}/rooms", json={"name": "Living room"})
+        assert room.status_code == 201
+        brief = client.post(
+            f"/api/v1/projects/{project_id}/briefs",
+            json={"room_id": room.json()["id"], "content": {"style": "Soft modern"}},
+        )
+        assert brief.status_code == 201
+        assert brief.json()["version"] == 1
+        plan = client.post(
+            "/api/v1/chat",
+            json={
+                "project_id": project_id,
+                "brief": {"style": "Soft modern"},
+                "message": "Suggest a direction",
+            },
+        )
+        assert plan.status_code == 200
+        assert plan.json()["provider"] == "mock"
+        assert plan.json()["plan"]["style"] == "Soft modern"
+        assert plan.json()["plan"]["palette"][0]["hex"].startswith("#")
+        assert client.get(f"/api/v1/projects/{project_id}/results").json() == []
+
+
+def test_signed_local_upload_is_scoped_and_validates_signature(tmp_path):
+    png = bytes.fromhex("89504e470d0a1a0a00000000") + b"test-image-data"
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        room_id = client.post(
+            f"/api/v1/projects/{project_id}/rooms", json={"name": "Office"}
+        ).json()["id"]
+        signed = client.post(
+            f"/api/v1/projects/{project_id}/assets/upload-url",
+            json={
+                "room_id": room_id,
+                "filename": "room.png",
+                "mime_type": "image/png",
+                "size_bytes": len(png),
+            },
+        )
+        assert signed.status_code == 201
+        upload = signed.json()
+        headers = {**upload["headers"], "x-maya-upload-token": "0" * 64}
+        bad = client.put(upload["upload_url"], content=png, headers=headers)
+        assert bad.status_code == 403
+        headers["x-maya-upload-token"] = upload["headers"]["x-maya-upload-token"]
+        good = client.put(upload["upload_url"], content=png, headers=headers)
+        assert good.status_code == 204
+
+
+def test_mock_chat_provider_returns_schema_valid_plan(tmp_path):
+    import asyncio
+
+    from app.providers.chat.mock import MockChatProvider
+
+    plan = asyncio.run(MockChatProvider().plan({"style": "Coastal"}))
+    assert plan.style == "Coastal"
+    assert len(plan.palette) == 3
+    assert plan.model_dump()["scene_beats"]
+
+
+def test_comfyui_provider_reports_degraded_state(tmp_path):
+    import asyncio
+
+    import pytest
+
+    from app.core.errors import ProviderUnavailable
+    from app.providers.media.comfyui import ComfyUIProvider
+
+    with pytest.raises(ProviderUnavailable):
+        asyncio.run(ComfyUIProvider(None).generate({"id": "mock"}))
+
+
+def test_job_list_is_project_scoped(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        client.post(
+            "/api/v1/jobs",
+            json={"project_id": project_id, "brief": {"style": "Natural"}},
+            headers={"Idempotency-Key": "list-1"},
+        )
+        listed = client.get(f"/api/v1/jobs?project_id={project_id}")
+        assert listed.status_code == 200
+        assert len(listed.json()) == 1
+
+
+def test_projects_crud_and_membership_boundary(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        assert len(client.get("/api/v1/projects").json()) == 1
+        assert client.get(f"/api/v1/projects/{project_id}").json()["name"] == "Reading nook"
+        updated = client.patch(
+            f"/api/v1/projects/{project_id}", json={"name": "Quiet reading room"}
+        )
+        assert updated.status_code == 200
+        assert updated.json()["name"] == "Quiet reading room"
+
+        from app.core.auth import get_current_user
+
+        client.app.dependency_overrides[get_current_user] = lambda: {
+            "id": "other-user",
+            "email": "",
+        }
+        assert client.get(f"/api/v1/projects/{project_id}").status_code == 404
+        client.app.dependency_overrides[get_current_user] = lambda: {"id": "dev-user", "email": ""}
+        assert client.delete(f"/api/v1/projects/{project_id}").status_code == 204
+        assert client.get(f"/api/v1/projects/{project_id}").status_code == 404
+
+
+def test_brief_versions_and_room_validation(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        first = client.post(
+            f"/api/v1/projects/{project_id}/briefs", json={"content": {"style": "Coastal"}}
+        )
+        second = client.post(
+            f"/api/v1/projects/{project_id}/briefs", json={"content": {"style": "Modern"}}
+        )
+        assert first.json()["version"] == 1
+        assert second.json()["version"] == 2
+        assert len(client.get(f"/api/v1/projects/{project_id}/briefs").json()) == 2
+        invalid_room = client.post(
+            f"/api/v1/projects/{project_id}/briefs",
+            json={"room_id": "00000000-0000-0000-0000-000000000001", "content": {}},
+        )
+        assert invalid_room.status_code == 404
+        assert client.get(f"/api/v1/projects/{project_id}/rooms").json() == []
+
+
+def test_job_status_not_found_and_invalid_room(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        invalid = client.post(
+            "/api/v1/jobs",
+            json={
+                "project_id": project_id,
+                "room_id": "00000000-0000-0000-0000-000000000001",
+                "brief": {},
+            },
+            headers={"Idempotency-Key": "bad-room"},
+        )
+        assert invalid.status_code == 404
+        missing = client.get("/api/v1/jobs/00000000-0000-0000-0000-000000000001")
+        assert missing.status_code == 404
+        created = client.post(
+            "/api/v1/jobs",
+            json={"project_id": project_id, "brief": {}},
+            headers={"Idempotency-Key": "job-status"},
+        ).json()
+        assert client.get(f"/api/v1/jobs/{created['id']}").json()["status"] == "queued"
+
+
+def test_result_list_select_and_unselect(tmp_path):
+    with client_for(tmp_path) as client:
+        project_id = create_project(client)
+        job = client.post(
+            "/api/v1/jobs",
+            json={"project_id": project_id, "brief": {}},
+            headers={"Idempotency-Key": "result-1"},
+        ).json()
+
+        async def insert_result() -> str:
+            async with client.app.state.session_factory() as session:
+                row = Result(
+                    job_id=UUID(job["id"]),
+                    prompt_version="design_plan_v1",
+                    prompt_hash="0" * 64,
+                    output_json={
+                        "plan": {"style": "Warm modern"},
+                        "media": {"kind": "placeholder_metadata"},
+                    },
+                )
+                session.add(row)
+                await session.commit()
+                return str(row.id)
+
+        result_id = asyncio.run(insert_result())
+        assert len(client.get(f"/api/v1/projects/{project_id}/results").json()) == 1
+        selected = client.post(f"/api/v1/results/{result_id}/select", json={"selected": True})
+        assert selected.status_code == 200
+        assert selected.json()["selected_by"] == "dev-user"
+        unselected = client.post(f"/api/v1/results/{result_id}/select", json={"selected": False})
+        assert unselected.json()["selected_by"] is None
+        assert (
+            client.post(
+                "/api/v1/results/00000000-0000-0000-0000-000000000001/select", json={}
+            ).status_code
+            == 404
+        )
+
+
+def test_auth_hs256_and_jwks_validation(monkeypatch):
+    from app.core.auth import _verify_supabase_token
+
+    secret = "local-test-jwt-secret"
+    claims = {
+        "sub": "user-123",
+        "aud": "authenticated",
+        "exp": datetime.now(UTC) + timedelta(minutes=5),
+    }
+    hs_token = jwt.encode(claims, secret, algorithm="HS256")
+    settings = Settings(supabase_url="https://project.supabase.co", supabase_jwt_secret=secret)
+    assert asyncio.run(_verify_supabase_token(hs_token, settings))["sub"] == "user-123"
+    with pytest.raises(AppError):
+        asyncio.run(_verify_supabase_token("not.a.jwt", settings))
+
+    jwks_secret = b"mock-jwks-secret"
+    jwks_token = jwt.encode(claims, jwks_secret, algorithm="HS256", headers={"kid": "mock-key"})
+    jwk = {
+        "kty": "oct",
+        "alg": "HS256",
+        "use": "sig",
+        "kid": "mock-key",
+        "k": base64.urlsafe_b64encode(jwks_secret).decode().rstrip("="),
+    }
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: FakeAsyncClient(
+            get_response=lambda url, **_kwargs: httpx.Response(
+                200, json={"keys": [jwk]}, request=httpx.Request("GET", url)
+            )
+        ),
+    )
+    jwks_settings = Settings(supabase_url="https://project.supabase.co")
+    assert asyncio.run(_verify_supabase_token(jwks_token, jwks_settings))["sub"] == "user-123"
+
+
+def test_auth_rejects_unknown_jwks_key(monkeypatch):
+    from app.core.auth import _verify_supabase_token
+
+    token = jwt.encode(
+        {"sub": "user", "aud": "authenticated"},
+        "secret",
+        algorithm="HS256",
+        headers={"kid": "missing"},
+    )
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: FakeAsyncClient(
+            get_response=lambda url, **_kwargs: httpx.Response(
+                200, json={"keys": []}, request=httpx.Request("GET", url)
+            )
+        ),
+    )
+    with pytest.raises(AppError) as error:
+        asyncio.run(
+            _verify_supabase_token(token, Settings(supabase_url="https://project.supabase.co"))
+        )
+    assert error.value.status_code == 401
+
+
+def test_gemini_provider_validates_response_and_handles_invalid_json(monkeypatch):
+    from app.providers.chat.gemini import GeminiChatProvider
+
+    plan = {
+        "style": "Soft modern",
+        "palette": [
+            {"name": "Linen", "hex": "#E9E2D5", "role": "walls"},
+            {"name": "Oak", "hex": "#A9784F", "role": "warm accent"},
+            {"name": "Sage", "hex": "#879184", "role": "soft contrast"},
+        ],
+        "camera_moves": ["wide reveal"],
+        "scene_beats": ["reveal the room", "show the palette", "close on material details"],
+        "narration": "A calm concept.",
+        "constraints": ["Visualisation only."],
+    }
+
+    def valid_post(url, **kwargs):
+        assert "secret-key" not in url
+        assert kwargs["headers"]["x-goog-api-key"] == "secret-key"
+        response_format = kwargs["json"]["generationConfig"]["responseFormat"]["text"]
+        assert response_format["mimeType"] == "application/json"
+        assert response_format["schema"]["properties"]["palette"]["minItems"] == 3
+        prompt = kwargs["json"]["contents"][0]["parts"][0]["text"]
+        assert '"style": "Soft modern"' in prompt
+        assert "untrusted user data" in prompt
+        return httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": json.dumps(plan)}]}}]},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: FakeAsyncClient(post_response=valid_post),
+    )
+    provider = GeminiChatProvider("secret-key", "test-model")
+    assert asyncio.run(provider.plan({"style": "Soft modern"})).style == "Soft modern"
+
+    def invalid_post(url, **kwargs):
+        return httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": "{}"}]}}]},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: FakeAsyncClient(post_response=invalid_post),
+    )
+    with pytest.raises(AppError):
+        asyncio.run(provider.plan({}))
+
+
+def test_provider_selection_and_keyless_media_metadata(tmp_path, monkeypatch):
+    from app.providers.chat.gemini import GeminiChatProvider
+    from app.providers.chat.mock import MockChatProvider
+    from app.providers.media.comfyui import ComfyUIProvider
+    from app.providers.media.mock import MockMediaProvider
+    from app.services.providers import chat_provider, media_provider
+
+    assert isinstance(chat_provider(Settings()), MockChatProvider)
+    assert isinstance(chat_provider(Settings(gemini_api_key="configured")), GeminiChatProvider)
+    assert isinstance(media_provider(Settings()), MockMediaProvider)
+    assert isinstance(media_provider(Settings(comfyui_base_url="http://comfy")), ComfyUIProvider)
+    monkeypatch.setattr("app.providers.media.mock._has_ffmpeg", lambda: False)
+
+    class Job:
+        id = "00000000-0000-0000-0000-000000000002"
+
+    output = asyncio.run(MockMediaProvider(str(tmp_path / "media")).generate(Job()))
+    assert output["kind"] == "placeholder_metadata"
+    assert output["ffmpeg_available"] is False
+
+
+def test_supabase_signed_upload_url_and_missing_service_key(tmp_path, monkeypatch):
+    from app.core.auth import get_current_user
+
+    settings = Settings(
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'supabase-storage.db'}",
+        upload_dir=str(tmp_path / "uploads"),
+        environment="test",
+        supabase_url="https://project.supabase.co",
+        supabase_service_role_key="server-only-test",
+    )
+    app = create_app(settings)
+    app.dependency_overrides[get_current_user] = lambda: {"id": "demo-user", "email": ""}
+
+    def signed_upload(url, **kwargs):
+        assert "server-only-test" not in url
+        assert kwargs["headers"]["Authorization"] == "Bearer server-only-test"
+        return httpx.Response(
+            200,
+            json={"url": "/object/upload/sign/maya-assets/project/file.png?token=temporary"},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: FakeAsyncClient(post_response=signed_upload),
+    )
+    with TestClient(app) as client:
+        project_id = client.post("/api/v1/projects", json={"name": "Private files"}).json()["id"]
+        response = client.post(
+            f"/api/v1/projects/{project_id}/assets/upload-url",
+            json={
+                "filename": "room.png",
+                "mime_type": "image/png",
+                "size_bytes": 99,
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["upload_url"].startswith(
+            "https://project.supabase.co/storage/v1/object/upload/sign/"
+        )
+
+    settings_without_key = Settings(
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'supabase-no-key.db'}",
+        environment="test",
+        supabase_url="https://project.supabase.co",
+    )
+    app_without_key = create_app(settings_without_key)
+    app_without_key.dependency_overrides[get_current_user] = lambda: {
+        "id": "demo-user",
+        "email": "",
+    }
+    with TestClient(app_without_key) as client:
+        project_id = client.post("/api/v1/projects", json={"name": "Private files"}).json()["id"]
+        response = client.post(
+            f"/api/v1/projects/{project_id}/assets/upload-url",
+            json={
+                "filename": "room.png",
+                "mime_type": "image/png",
+                "size_bytes": 99,
+            },
+        )
+        assert response.status_code == 503
+
+
+def test_upload_limits_room_scope_and_bad_image_bytes(tmp_path):
+    with client_for(tmp_path, max_upload_bytes=10) as client:
+        project_id = create_project(client)
+        too_large = client.post(
+            f"/api/v1/projects/{project_id}/assets/upload-url",
+            json={
+                "filename": "room.png",
+                "mime_type": "image/png",
+                "size_bytes": 11,
+            },
+        )
+        assert too_large.status_code == 413
+        wrong_room = client.post(
+            f"/api/v1/projects/{project_id}/assets/upload-url",
+            json={
+                "room_id": "00000000-0000-0000-0000-000000000001",
+                "filename": "room.png",
+                "mime_type": "image/png",
+                "size_bytes": 9,
+            },
+        )
+        assert wrong_room.status_code == 404
+        signed = client.post(
+            f"/api/v1/projects/{project_id}/assets/upload-url",
+            json={
+                "filename": "room.png",
+                "mime_type": "image/png",
+                "size_bytes": 9,
+            },
+        ).json()
+        bad_bytes = client.put(
+            signed["upload_url"], content=b"not an image", headers=signed["headers"]
+        )
+        assert bad_bytes.status_code == 413
+
+
+def test_unhandled_http_errors_keep_structured_envelope(tmp_path):
+    with client_for(tmp_path) as client:
+        response = client.get("/route-that-does-not-exist")
+        assert response.status_code == 404
+        assert response.json()["code"] == "http_error"
+        assert response.json()["request_id"] == response.headers["x-request-id"]
+````
+
+
+---
+
+## `.env.example`
+
+````dotenv
+# Frontend-safe publishable configuration
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+VITE_API_BASE_URL=http://localhost:8000
+
+# Local Docker Postgres only; never reuse this value in hosted environments
+POSTGRES_PASSWORD=local-only
+
+# Backend/server ONLY — never expose to browser or Git
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_JWT_SECRET=
+SUPABASE_STORAGE_BUCKET=maya-assets
+GEMINI_API_KEY=
+DATABASE_URL=sqlite+aiosqlite:///./maya.db
+DEV_AUTH_ENABLED=true
+# Set ENVIRONMENT=production in deployment. Production startup requires SUPABASE_URL
+# and never enables the local dev-user, regardless of DEV_AUTH_ENABLED.
+
+# Worker ONLY
+COMFYUI_BASE_URL=
+COMFYUI_API_TOKEN=
+HF_TOKEN=
+
+# CI / Deploy dashboard secrets only
+CLOUDFLARE_API_TOKEN=
+VERCEL_CRON_SECRET=
+````
+
+
+---
+
+## `README.md`
+
+````markdown
+# MAYA AI
+
+MAYA is an interior-design visualisation workspace: users organise projects and rooms, capture a structured brief, receive a validated design plan, and run media-generation jobs through replaceable providers. Phase 1 is mock-first and runs without API keys. Generated concepts are visualisations, not construction documents or guarantees of product availability, price, or code compliance.
+
+## Monorepo
+
+```text
+backend/   FastAPI API, SQLAlchemy/Alembic, prompts, tests, providers
+frontend/  React + TypeScript + Vite workspace
+worker/    Python job consumer and FFmpeg media stages
+docs/      governance decisions
+.agents/   individually reviewed repository-local agent skills
+shared/    reserved for generated cross-client contracts
+.github/   GitHub Actions CI
+```
+
+## Quickstart (zero keys)
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+Open the frontend at http://localhost:5173. Use the clearly labelled local dev-user mode, create a project, add a room and brief, request a mock plan, then enqueue a mock media job. The API is at http://localhost:8000 and health check at `/healthz`. No external model, Supabase, or GPU call is made in mock mode. If Docker is unavailable, run the API locally with `cd backend && uv sync --extra dev && uv run uvicorn app.main:app --reload`; use the SQLite default in `.env`.
+
+## Where real secrets belong
+
+| Variable | Put it in | Scope |
+|---|---|---|
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Frontend deployment settings (Cloudflare Pages/Vercel) | Publishable only; browser-visible |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` | API service secret manager (e.g. Cloudflare Worker/Container or hosting dashboard) | Server only; never `VITE_*` |
+| `DATABASE_URL` | API and worker secret settings | Server only; use a Supabase Postgres pooler connection string if choosing hosted Postgres |
+| `GEMINI_API_KEY` | API service secret manager | Server only; optional |
+| `COMFYUI_BASE_URL`, `COMFYUI_API_TOKEN`, `HF_TOKEN` | Private worker deployment secrets | Worker only; never browser/serverless |
+| `CLOUDFLARE_API_TOKEN`, `VERCEL_CRON_SECRET` | GitHub Actions secrets or the relevant deployment dashboard | CI/deployment only |
+
+Never paste secret values into issues, chat, source files, or `.env.example`. `.env` is ignored by Git.
+
+Set `ENVIRONMENT=production` in deployed API and worker environments. The API refuses to start in production without `SUPABASE_URL`; production never uses the local `dev-user`, even when `DEV_AUTH_ENABLED=true`. Keep `DEV_AUTH_ENABLED=true` only for local/CI use without Supabase.
+
+`SUPABASE_URL` is the Auth/Storage API endpoint, not a PostgreSQL connection string; hosted database connections need a separate `DATABASE_URL`. Compose deliberately uses its local Postgres service. Apply `backend/db/rls_policies.sql` and create/verify the private `maya-assets` bucket only in the intended Supabase project.
+
+## Governance files
+
+- `OX_ALPHA_START_MAYA.md` — required agent boot order and reporting contract.
+- `MAYA_OX_ALPHA_IMPLEMENTATION.md` — architecture, safety, and phased implementation brief.
+- `MAYA_OX_ALPHA_SKILLS_CATALOG.md` and `.json` — skills guidance and approved install set.
+- `MAYA_OX_ALPHA_SKILLS_TOOL_REGISTRY.md` and `.json` — discovery and tool-use governance.
+- `MAYA_FREE_STACK_AND_TOOLS.md` and `.json` — free-first dependencies, MCPs, and secrets.
+- `maya-skills-manifest.json` — machine-readable project scope.
+- `.agents/skills/` and `skills-lock.json` — individually approved skill copies and integrity hashes.
+- `docs/THIRD_PARTY_SKILLS.md` and `docs/third_party_licenses/` — upstream revisions, licenses, and notices for copied skills.
+- `docs/skill-decisions.md` — append-only skill/governance decisions.
+- `skills.sh` — validates the governance package and prints discovery guidance.
+
+## Prohibited capabilities
+
+This project must not implement CAPTCHA bypass, anti-detection, MFA bypass, credential harvesting, or rate-limit evasion. Social publishing is out of Phase 1; any future publishing requires official APIs and explicit per-action user approval. Heavy media processing belongs in worker containers, never serverless request handlers.
+````
+
+
+---
+
+## Authentication milestone verification
+
+Commands completed successfully in `backend/`:
+
+````sh
+uv sync --extra dev --locked
+uv run --locked ruff check app migrations tests ../worker
+uv run --locked mypy app ../worker
+uv run --locked pytest tests --cov=app --cov-fail-under=80
+DATABASE_URL=sqlite+aiosqlite:////tmp/maya-auth-milestone.db uv run --locked alembic upgrade head
+DATABASE_URL=sqlite+aiosqlite:////tmp/maya-auth-milestone.db uv run --locked python -m app.seed
+````
+
+Results: Ruff passed; mypy passed for 35 source files; pytest passed all 26 tests at 87.33% coverage (80% minimum); migration and sample seed succeeded. No real Supabase, Gemini, GPU, or external provider calls were made. The production setting was verified with tests using an explicitly supplied Supabase URL and no network requests.

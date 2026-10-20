@@ -57,9 +57,15 @@ async def get_current_user(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, str]:
     if credentials is None:
-        if settings.dev_auth_enabled and not settings.supabase_configured:
+        if settings.dev_auth_allowed:
             request.state.auth_mode = "dev-user (LOCAL/TEST ONLY)"
             return {"id": "dev-user", "email": "dev-user@local.invalid"}
+        if settings.is_production and not settings.supabase_configured:
+            raise AppError(
+                "auth_unavailable",
+                "Supabase authentication must be configured in production",
+                503,
+            )
         raise AppError("unauthorized", "A bearer token is required", 401)
     claims = await _verify_supabase_token(credentials.credentials, settings)
     subject = claims.get("sub")

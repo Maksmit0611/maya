@@ -29,7 +29,15 @@ class Settings(BaseSettings):
 
     @property
     def supabase_configured(self) -> bool:
-        return bool(self.supabase_url)
+        return bool(self.supabase_url and self.supabase_url.strip())
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.strip().casefold() == "production"
+
+    @property
+    def dev_auth_allowed(self) -> bool:
+        return self.dev_auth_enabled and not self.is_production and not self.supabase_configured
 
 
 @lru_cache

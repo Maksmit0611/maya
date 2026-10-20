@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or get_settings()
+    if resolved.is_production and not resolved.supabase_configured:
+        raise ValueError("Supabase authentication must be configured when ENVIRONMENT=production")
     engine, session_factory = make_session_factory(resolved.database_url)
 
     @asynccontextmanager
@@ -116,9 +118,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def healthz():
         return {
             "status": "ok",
-            "auth_mode": "supabase"
-            if resolved.supabase_configured
-            else "dev-user (LOCAL/TEST ONLY)",
+            "auth_mode": (
+                "supabase"
+                if resolved.supabase_configured
+                else "dev-user (LOCAL/TEST ONLY)"
+                if resolved.dev_auth_allowed
+                else "disabled"
+            ),
         }
 
     app.include_router(api_router, prefix="/api/v1")

@@ -38,12 +38,13 @@ class FakeAsyncClient:
 
 
 def client_for(tmp_path, **overrides):
-    settings = Settings(
-        database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
-        upload_dir=str(tmp_path / "uploads"),
-        environment="test",
+    options = {
+        "database_url": f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
+        "upload_dir": str(tmp_path / "uploads"),
+        "environment": "test",
         **overrides,
-    )
+    }
+    settings = Settings(**options)
     return TestClient(create_app(settings))
 
 
@@ -68,6 +69,38 @@ def test_auth_fails_closed_when_supabase_is_configured(tmp_path):
         response = client.get("/api/v1/projects")
         assert response.status_code == 401
         assert response.json()["code"] == "unauthorized"
+
+
+def test_production_startup_requires_supabase_auth_even_if_dev_auth_enabled(tmp_path):
+    settings = Settings(
+        database_url=f"sqlite+aiosqlite:///{tmp_path / 'production.db'}",
+        environment="production",
+        dev_auth_enabled=True,
+    )
+
+    with pytest.raises(ValueError, match="Supabase authentication must be configured"):
+        create_app(settings)
+
+
+def test_production_never_falls_back_to_dev_user(tmp_path):
+    with client_for(
+        tmp_path,
+        environment="production",
+        supabase_url="https://project.supabase.co",
+        dev_auth_enabled=True,
+    ) as client:
+        response = client.get("/api/v1/projects")
+        assert response.status_code == 401
+        assert response.json()["code"] == "unauthorized"
+        assert client.get("/healthz").json()["auth_mode"] == "supabase"
+
+
+def test_dev_auth_can_be_disabled_outside_production(tmp_path):
+    with client_for(tmp_path, environment="test", dev_auth_enabled=False) as client:
+        response = client.get("/api/v1/projects")
+        assert response.status_code == 401
+        assert response.json()["code"] == "unauthorized"
+        assert client.get("/healthz").json()["auth_mode"] == "disabled"
 
 
 def test_error_envelope_has_request_id(tmp_path):
